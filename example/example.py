@@ -3,6 +3,13 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision.models as tmodels
+import torchvision
+import torch.optim as optim
+
 # %%
 import torch
 import torch.nn as nn
