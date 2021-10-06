@@ -50,11 +50,11 @@ def padded_resize(x, size):
 class BaseModel(nn.Module):
     """The basic model for semantic anticipator
     """
-    def __init__(self, cfg=None):
+    def __init__(self, num_import_layers, num_output_layers, nsf):
         super().__init__()
+        self.normalize_channels = num_output_layers*[softmax_2d]
 
-        self.normalize_channel_0 = torch.sigmoid
-        self._create_gp_models()
+        self._create_gp_models(num_import_layers, num_output_layers, nsf)
 
     def forward(self, x):
         final_outputs = {}
@@ -70,19 +70,18 @@ class BaseModel(nn.Module):
         raise NotImplementedError
 
     def _normalize_decoder_output(self, x_dec):
-        x_dec_c0 = self.normalize_channel_0(x_dec)
-        return x_dec_c0
+        return torch.stack([normalize_channel(x_dec[:,i]) for i, normalize_channel in enumerate(self.normalize_channels)],dim=1)
 
 # SemAnt Model
 class SemAnt2D(BaseModel):
     """
     Anticipated using rgb and depth projection.
     """
-    def _create_gp_models(self):
+    def _create_gp_models(self, num_import_layers, num_output_layers, nsf):
         nmodes = 2
-        nsf = 16
-        unet_encoder = UNetEncoder(2, nsf=nsf)
-        unet_decoder = UNetDecoder(1, nsf=nsf)
+        nsf = 32
+        unet_encoder = UNetEncoder(num_import_layers, nsf=nsf)
+        unet_decoder = UNetDecoder(num_output_layers, nsf=nsf)
         self.gp_encoder = unet_encoder
 
         # Decoder module
