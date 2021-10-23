@@ -2,7 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0,'/home/shen/myproject/habitat/semantic_anticipation_2d')
+#sys.path.insert(0,'/home/shen/myproject/habitat/semantic_anticipation_2d')
+sys.path.insert(0,'/home/m-yordanova/catkin_ws_ma/src/rosnav-imagination')
 
 import torch
 import torch.nn as nn
@@ -65,7 +66,8 @@ costmap = np.load('../data/1/2_1_container_costmap_id.npz')
 num_catagories = 1
 catagories = [0]
 MapDataset = CustomDataset(ground_truth, costmap, num_catagories,catagories)
-train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=True)
+#train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=True)
+train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=False)
 # %%
 def simple_mapping_loss_fn(pt_hat, pt_gt):
     num_catagories = pt_hat.shape[1]
@@ -81,7 +83,8 @@ def simple_mapping_loss_fn(pt_hat, pt_gt):
 
 # %%
 running_loss = 0.0
-device = 'cuda:0'
+#device = 'cuda:0'
+device = 'cpu'
 batch_size = 8
 ego_map_size = 60
 anticipator = SemAnt2D(1,num_catagories,32).to(device)
@@ -102,4 +105,11 @@ for epoch in range(20):
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss/10))
             running_loss = 0.0
+# %%
+# make sure that the observation and ground truth data pairs match
+lidar, labels = next(iter(train_dataloader))
+labels.shape # torch.Size([8, 1, 60, 60])
+plt.imshow(labels[1,0])
+plt.figure()
+plt.imshow(lidar[1,0])
 # %%
