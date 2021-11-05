@@ -60,14 +60,59 @@ class CustomDataset(Dataset):
         return lidar[np.newaxis], gt
 
 # %%
-# %%
-ground_truth = np.load('../data/1/2_2_container_ground_truth_id.npz')
-costmap = np.load('../data/1/2_1_container_costmap_id.npz')
+ground_truth = np.load('../data/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_1 = np.load('../data/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_2 = np.load('../data/2/2_2_container_ground_truth_id.npz') # len = 244
+ground_truth_3 = np.load('../data/3/2_2_container_ground_truth_id.npz') # len = 291
+ground_truth_4 = np.load('../data/4/2_2_container_ground_truth_id.npz') # len = 318
+ground_truth_5 = np.load('../data/5/2_2_container_ground_truth_id.npz') # len = 342
+
+### combine and sort all ground truth data
+### all npz files have the same names inside
+### extract the npy files from each npz file and then bild a single npz file from all npy files
+ground_truth_ar = [] # len = 1400
+for i in range(len(ground_truth)):
+    ground_truth_ar.append(ground_truth['arr_' + str(i)])
+for i in range(len(ground_truth_2)):
+    ground_truth_ar.append(ground_truth_2['arr_' + str(i)])
+for i in range(len(ground_truth_3)):
+    ground_truth_ar.append(ground_truth_3['arr_' + str(i)])
+for i in range(len(ground_truth_4)):
+    ground_truth_ar.append(ground_truth_4['arr_' + str(i)])
+for i in range(len(ground_truth_5)):
+    ground_truth_ar.append(ground_truth_5['arr_' + str(i)])
+np.savez('../data/all/ground_truth_all.npz', *ground_truth_ar)
+ground_truth_data_ar = np.load('../data/all/ground_truth_all.npz')
+#print(ground_truth_data_ar) # correct type: numpy.lib.npyio.NpzFile object
+#print(ground_truth_data_ar.files) # correct structure: ['arr_0', 'arr_1', 'arr_2', ...]
+#print(ground_truth_data_ar['arr_0']) # right: [[0. 0. 0. ... 7. 0. 0. ...]]
+#print(ground_truth_data_ar.files[0]) # wrong: arr_0; no data inside
+
+### combine and sort all costmap data
+costmap = np.load('../data/1/2_1_container_costmap_id.npz') # len = 205
+costmap_1 = np.load('../data/1/2_1_container_costmap_id.npz') # len = 205
+costmap_2 = np.load('../data/2/2_1_container_costmap_id.npz') # len = 244
+costmap_3 = np.load('../data/3/2_1_container_costmap_id.npz') # len = 291
+costmap_4 = np.load('../data/4/2_1_container_costmap_id.npz') # len = 318
+costmap_5 = np.load('../data/5/2_1_container_costmap_id.npz') # len = 342
+costmap_ar = [] # len = 1400
+for i in range(len(costmap_1)):
+    costmap_ar.append(costmap_1['arr_' + str(i)])
+for i in range(len(costmap_2)):
+    costmap_ar.append(costmap_2['arr_' + str(i)])
+for i in range(len(costmap_3)):
+    costmap_ar.append(costmap_3['arr_' + str(i)])
+for i in range(len(costmap_4)):
+    costmap_ar.append(costmap_4['arr_' + str(i)])
+for i in range(len(costmap_5)):
+    costmap_ar.append(costmap_5['arr_' + str(i)])
+np.savez('../data/all/costmap_all.npz', *costmap_ar)
+costmap_data_ar = np.load('../data/all/costmap_all.npz')
+
 num_catagories = 1
 catagories = [0]
-MapDataset = CustomDataset(ground_truth, costmap, num_catagories,catagories)
-#train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=True)
-train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=False)
+MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories,catagories)
+train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=False) # shuffle=True/False
 # %%
 def simple_mapping_loss_fn(pt_hat, pt_gt):
     num_catagories = pt_hat.shape[1]
@@ -85,12 +130,12 @@ def simple_mapping_loss_fn(pt_hat, pt_gt):
 running_loss = 0.0
 #device = 'cuda:0'
 device = 'cpu'
-batch_size = 8
+batch_size = 8 # 8 -> 24 -> 32
 ego_map_size = 60
 anticipator = SemAnt2D(1,num_catagories,32).to(device)
 optimizer = optim.SGD(anticipator.parameters(), lr=0.001, momentum=0.9)
 
-for epoch in range(20):
+for epoch in range(20): # increase!
     for i, data in  enumerate(train_dataloader, 0):
         lidar, labels = data
         lidar = lidar.type(torch.float32).to(device)
