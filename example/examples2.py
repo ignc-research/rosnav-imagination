@@ -158,16 +158,20 @@ for epoch in range(iterations): # training loop
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss/10))
             running_loss = 0.0
-    #if epoch % 100 == 0: # save the model every X epochs
-    path = "./temp_models/model_" + str(epoch) + ".pth" # .pt/.pth
-    torch.save({
-                'epoch': epoch,
-                'model_state_dict': anticipator.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss
-                }, path)
-    #path2 = "./temp_models2/model_" + str(epoch) + ".pth" # .pt/.pth
-    #torch.save(anticipator, path2)
+    if epoch % 100 == 0: # save the model every X epochs
+        #path = "./temp_models/model_" + str(epoch) + ".pth" # .pt/.pth
+        #torch.save({
+        #            'epoch': epoch,
+        #            'model_state_dict': anticipator.state_dict(),
+        #            'optimizer_state_dict': optimizer.state_dict(),
+        #            'loss': loss
+        #            }, path)
+        path2 = "./temp_models2/model_" + str(epoch) + ".pth" # .pt/.pth
+        torch.save(anticipator, path2)
+    # Statistics:
+    # 2760 trained models (with epoch, loss etc.) for 19h as 69 GB, where a model for each epoch was saved
+    # 101 trained entire models for 40 min as 2 files of 25.6 MB all together, where a model for each 100 epochs was saved
+    # "./temp_models/model_0" (25.6 MB) is the double size of "./temp_models2/model_0" (12.8 MB)
 writer.flush() # make sure that all pending events have been written to disk
 #writer.close()
 # %%
@@ -215,23 +219,23 @@ checkpoint_10 = torch.load("./temp_models/model_10.pth")
 epoch_test_10 = checkpoint_10['epoch']
 loss_test_10 = checkpoint_10['loss']
 print("epoch: " + str(epoch_test_10)) # 10
-print("loss: " + str(loss_test_10)) # 2.4305
+print("loss: " + str(loss_test_10)) # 2.4177
 
 checkpoint_19 = torch.load("./temp_models/model_19.pth")
 epoch_test_19 = checkpoint_19['epoch']
 loss_test_19 = checkpoint_19['loss']
 print("epoch: " + str(epoch_test_19)) # 19
-print("loss: " + str(loss_test_19)) # 2.3549
+print("loss: " + str(loss_test_19)) # 2.3573
 
 checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
 epoch_test_1000 = checkpoint_1000['epoch']
 loss_test_1000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_1000)) # 1000
-print("loss: " + str(loss_test_1000)) # 
+print("loss: " + str(loss_test_1000)) # 2.2264
 
 checkpoint_2000 = torch.load("./temp_models/model_2000.pth")
 epoch_test_2000 = checkpoint_1000['epoch']
 loss_test_2000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_2000)) # 2000
-print("loss: " + str(loss_test_2000)) # 
+print("loss: " + str(loss_test_2000)) # 2.2264
 # %%
