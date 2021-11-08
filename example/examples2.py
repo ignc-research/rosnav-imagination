@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from einops import rearrange
-from rl.semantic_anticipator import SemAnt2D
+from rl.semantic_anticipator import SemAnt2D # the model
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 # %%
@@ -41,7 +41,7 @@ def padded_resize(x, size):
     return x
 
 # %%
-class CustomDataset(Dataset):
+class CustomDataset(Dataset): # training dataset generator for the ground truth and observation (costmap) data
     def __init__(self, ground_truth, costmap, num_catagories, catagories):
         self.ground_truth = ground_truth
         self.costmap = costmap
@@ -55,7 +55,7 @@ class CustomDataset(Dataset):
         index =  list(self.ground_truth.keys())[idx]
         gt = np.zeros((self.num_catagories, self.ground_truth[index].shape[0], self.ground_truth[index].shape[1]))
         for i in range(self.num_catagories):
-            gt[i][self.ground_truth[index] > 0] = 1
+            gt[i][self.ground_truth[index] > 0] = 1 # one layer ground truth data for now, so occupied or not
         lidar = self.costmap[index]
         return lidar[np.newaxis], gt
 
@@ -109,10 +109,11 @@ for i in range(len(costmap_5)):
 np.savez('../data/all/costmap_all.npz', *costmap_ar)
 costmap_data_ar = np.load('../data/all/costmap_all.npz')
 
-num_catagories = 1
-catagories = [0]
+num_catagories = 1 # for now only one category of occupied area # expand later on!
+catagories = [0] # a list!
+batch_size = 8 # 8 -> 24 -> 32
 MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories,catagories)
-train_dataloader = DataLoader(MapDataset, batch_size=8, shuffle=False) # shuffle=True/False
+train_dataloader = DataLoader(MapDataset, batch_size, shuffle=False) # shuffle=True/False
 # %%
 def simple_mapping_loss_fn(pt_hat, pt_gt):
     num_catagories = pt_hat.shape[1]
@@ -128,21 +129,28 @@ def simple_mapping_loss_fn(pt_hat, pt_gt):
 
 # %%
 running_loss = 0.0
-#device = 'cuda:0'
-device = 'cpu'
-batch_size = 8 # 8 -> 24 -> 32
+#device = 'cuda:0' # run on gpu
+device = 'cpu' # run on cpu
 ego_map_size = 60
-anticipator = SemAnt2D(1,num_catagories,32).to(device)
-optimizer = optim.SGD(anticipator.parameters(), lr=0.001, momentum=0.9)
+num_import_layers = 1
+num_output_layers = num_catagories # for now =1, extend later on!
+network_size = 32 # 16/32/64
+anticipator = SemAnt2D(num_import_layers,num_output_layers,network_size).to(device) # init the model
+optimizer = optim.SGD(anticipator.parameters(), lr=0.001, momentum=0.9) # init the optimizer
 
-for epoch in range(20): # increase!
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
+iterations = 10000 # increase from 20 to 1000/10000/100000/1000000
+for epoch in range(iterations): # training loop
     for i, data in  enumerate(train_dataloader, 0):
         lidar, labels = data
         lidar = lidar.type(torch.float32).to(device)
         labels = labels.type(torch.float32).to(device)
         optimizer.zero_grad()
-        output = anticipator(lidar)
+        # model(x) = y1 ?= y | model(observation = lidar) = result = labels ?= ground truth labels
+        output = anticipator(lidar) # put data into the anticipator (predictor)
         loss = simple_mapping_loss_fn(output["occ_estimate"], labels)
+        writer.add_scalar("Loss/train", loss, epoch) # log the loss value
         loss.backward()
         optimizer.step()
         running_loss += loss.item()
@@ -150,6 +158,18 @@ for epoch in range(20): # increase!
             print('[%d, %5d] loss: %.3f' %
                   (epoch + 1, i + 1, running_loss/10))
             running_loss = 0.0
+    #if epoch % 100 == 0: # save the model every X epochs
+    path = "./temp_models/model_" + str(epoch) + ".pth" # .pt/.pth
+    torch.save({
+                'epoch': epoch,
+                'model_state_dict': anticipator.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss
+                }, path)
+    #path2 = "./temp_models2/model_" + str(epoch) + ".pth" # .pt/.pth
+    #torch.save(anticipator, path2)
+writer.flush() # make sure that all pending events have been written to disk
+#writer.close()
 # %%
 # make sure that the observation and ground truth data pairs match
 lidar, labels = next(iter(train_dataloader))
@@ -157,4 +177,61 @@ labels.shape # torch.Size([8, 1, 60, 60])
 plt.imshow(labels[1,0])
 plt.figure()
 plt.imshow(lidar[1,0])
+# %%
+# understand the model (anticipator) and the optimizer
+print(anticipator)
+print(anticipator.parameters())
+
+# print model's (anticipator's) state_dict
+print("Model's state_dict:")
+for param_tensor in anticipator.state_dict():
+    print(param_tensor, "\t", anticipator.state_dict()[param_tensor].size())
+
+# print optimizer's state_dict
+print("Optimizer's state_dict:")
+for var_name in optimizer.state_dict():
+    print(var_name, "\t", optimizer.state_dict()[var_name])
+# %%
+#save/load the entire model
+path = "./temp_models/model_final.pth" # .pt/.pth
+torch.save(anticipator, path)
+model = torch.load(path)
+# how to get the epoch, loss etc. from the saved and loaded entire model?
+model.eval()
+#model.train() # outputs SemAnt2D()
+# %%
+# test - load a couple of the saved models to see the difference
+checkpoint_0 = torch.load("./temp_models/model_0.pth")
+#model.load_state_dict(checkpoint['model_state_dict'])
+#optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+epoch_test_0 = checkpoint_0['epoch']
+loss_test_0 = checkpoint_0['loss']
+print("epoch: " + str(epoch_test_0)) # 0
+print("loss: " + str(loss_test_0)) # tensor(2.6073, requires_grad=True)
+#model.eval()
+#model.train()
+
+checkpoint_10 = torch.load("./temp_models/model_10.pth")
+epoch_test_10 = checkpoint_10['epoch']
+loss_test_10 = checkpoint_10['loss']
+print("epoch: " + str(epoch_test_10)) # 10
+print("loss: " + str(loss_test_10)) # 2.4305
+
+checkpoint_19 = torch.load("./temp_models/model_19.pth")
+epoch_test_19 = checkpoint_19['epoch']
+loss_test_19 = checkpoint_19['loss']
+print("epoch: " + str(epoch_test_19)) # 19
+print("loss: " + str(loss_test_19)) # 2.3549
+
+checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
+epoch_test_1000 = checkpoint_1000['epoch']
+loss_test_1000 = checkpoint_1000['loss']
+print("epoch: " + str(epoch_test_1000)) # 1000
+print("loss: " + str(loss_test_1000)) # 
+
+checkpoint_2000 = torch.load("./temp_models/model_2000.pth")
+epoch_test_2000 = checkpoint_1000['epoch']
+loss_test_2000 = checkpoint_1000['loss']
+print("epoch: " + str(epoch_test_2000)) # 2000
+print("loss: " + str(loss_test_2000)) # 
 # %%
