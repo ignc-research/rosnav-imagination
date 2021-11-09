@@ -13,6 +13,7 @@ from einops import rearrange
 from rl.semantic_anticipator import SemAnt2D # the model
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import cv2
 # %%
 def softmax_2d(x):
     b, h, w = x.shape  
@@ -57,6 +58,23 @@ class CustomDataset(Dataset): # training dataset generator for the ground truth 
         for i in range(self.num_catagories):
             gt[i][self.ground_truth[index] > 0] = 1 # one layer ground truth data for now, so occupied or not
         lidar = self.costmap[index]
+        return lidar[np.newaxis], gt
+
+class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single ply file
+    def __init__(self, ground_truth, costmap, num_catagories, catagories):
+        self.ground_truth = ground_truth
+        self.costmap = costmap
+        self.num_catagories = num_catagories
+        self.catagories = catagories
+    
+    def __len__(self):
+        return 1
+    
+    def __getitem__(self,idx):
+        gt = np.zeros((self.num_catagories, self.ground_truth.shape[0], self.ground_truth.shape[1]))
+        for i in range(self.num_catagories):
+            gt[i][self.ground_truth > 0] = 1 # one layer ground truth data for now, so occupied or not
+        lidar = self.costmap
         return lidar[np.newaxis], gt
 
 # %%
@@ -112,7 +130,7 @@ costmap_data_ar = np.load('../data/all/costmap_all.npz')
 num_catagories = 1 # for now only one category of occupied area # expand later on!
 catagories = [0] # a list!
 batch_size = 8 # 8 -> 24 -> 32
-MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories,catagories)
+MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories, catagories)
 train_dataloader = DataLoader(MapDataset, batch_size, shuffle=False) # shuffle=True/False
 # %%
 def simple_mapping_loss_fn(pt_hat, pt_gt):
@@ -238,4 +256,137 @@ epoch_test_2000 = checkpoint_1000['epoch']
 loss_test_2000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_2000)) # 2000
 print("loss: " + str(loss_test_2000)) # 2.2264
+# %%
+# Test the model if the prediction is reasonable
+# Show the output as an image and compare it with the ground truth
+
+# get the observation (costmap/lidar) and ground truth (labels) data
+lidar, labels = next(iter(train_dataloader))
+lidar = lidar.type(torch.float32).to(device) # convert float to double
+labels = labels.type(torch.float32).to(device)
+
+# load the model
+model_0 = torch.load("./temp_models2/model_0.pth")
+model_100 = torch.load("./temp_models2/model_100.pth")
+checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
+checkpoint_2760 = torch.load("./temp_models/model_2760.pth")
+
+# get the prediction (predicted labels): prediction = model(observation)
+labels_0 = model_0(lidar)
+labels_100 = model_100(lidar)
+anticipator.load_state_dict(checkpoint_1000['model_state_dict']) # ! first load the disc state to a model and then use that model to get the prediction
+output_1000 = anticipator(lidar)
+anticipator.load_state_dict(checkpoint_2760['model_state_dict']) # !
+output_2760 = anticipator(lidar)
+
+labels.shape # shape: torch.Size([8, 1, 60, 60])
+labels_100["occ_estimate"].shape # shape: torch.Size([8, 1, 60, 60])
+
+plt.imshow(lidar[0,0]) # observation
+plt.figure()
+plt.imshow(labels[0,0]) # ground truth
+plt.figure()
+plt.imshow(labels_0["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(labels_100["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(output_1000["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(output_2760["occ_estimate"].detach()[0,0]) # prediction
+
+# %%
+# Test the model with the test data:
+# - create a new scenario (scenario 6) that the robot hasn't trained on
+# - or exclude the last made scenario from the training set (scenario5), train again and then use this scenario as test dataset
+
+anticipator.eval()
+model_0.eval()
+model_100.eval()
+
+# Test the model with test data (1): an example ground truth and observation (costmap) image
+# Attention: the model was trained with an ID, not with a rgb color, so transform the color of the images to ids
+# img array shape: (60,60,3) with rgb color -> (60,60) with id
+# for now we have only one category, so the ids could be just 0 and 1 for free and occupied
+
+img_costmap = cv2.imread('../data_test/costmap_test1.png')
+img_costmap_id = np.zeros((img_costmap.shape[0],img_costmap.shape[1]))
+black_ar = [0,0,0]
+for i in range(img_costmap.shape[0]):
+    for j in range(img_costmap.shape[1]):
+        BGR_color = [img_costmap[i, j, 0], img_costmap[i, j, 1], img_costmap[i, j, 2]]
+        id_temp = 1 # one category for now, per default occupied
+        if BGR_color == black_ar:
+            id_temp = 0
+        img_costmap_id[i,j] = id_temp
+img_costmap_ar = np.asarray(img_costmap_id)
+np.save('../data_test/costmap_id_test1.npy', img_costmap_ar)
+img_costmap_npy = np.load('../data_test/costmap_id_test1.npy')
+
+img_ground_truth_map = cv2.imread('../data_test/ground_truth_test1.png')
+img_ground_truth_map_id = np.zeros((img_ground_truth_map.shape[0],img_ground_truth_map.shape[1]))
+black_ar = [0,0,0]
+for i in range(img_ground_truth_map.shape[0]):
+    for j in range(img_ground_truth_map.shape[1]):
+        BGR_color = [img_ground_truth_map[i, j, 0], img_ground_truth_map[i, j, 1], img_ground_truth_map[i, j, 2]]
+        id_temp = 1 # one category for now, per default occupied
+        if BGR_color == black_ar:
+            id_temp = 0
+        img_ground_truth_map_id[i,j] = id_temp
+img_ground_truth_map_ar = np.asarray(img_ground_truth_map_id)
+np.save('../data_test/ground_truth_id_test1.npy', img_ground_truth_map_ar)
+img_ground_truth_map_npy = np.load('../data_test/ground_truth_id_test1.npy')
+
+MapDatasetTestNPY = CustomDatasetSingle(img_ground_truth_map_npy, img_costmap_npy, num_catagories, catagories)
+test_dataloader_npy = DataLoader(MapDatasetTestNPY, batch_size, shuffle=False)
+
+lidar_test_npy, labels_test_npy = next(iter(test_dataloader_npy))
+lidar_test_npy = lidar_test_npy.type(torch.float32).to(device)
+labels_test_npy = labels_test_npy.type(torch.float32).to(device)
+
+labels_prediction_npy_0 = model_0(lidar_test_npy)
+labels_prediction_npy_100 = model_100(lidar_test_npy)
+output_prediction_npy_2760 = anticipator(lidar_test_npy)
+
+#print(labels_test_npy.shape) # torch.Size([1, 1, 60, 60])
+plt.figure()
+plt.imshow(labels_test_npy[0,0]) # ground truth # plt.imshow(img_ground_truth_map_npy)
+plt.figure()
+plt.imshow(lidar_test_npy[0,0]) # observation # plt.imshow(img_costmap_npy)
+plt.figure()
+plt.imshow(labels_prediction_npy_0["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(labels_prediction_npy_100["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(output_prediction_npy_2760["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+
+# TODO: scenario6_ground_truth_id.npz & scenario6_costmap_id.npz
+# Test the model with test data (2): a whole test dataset (scenario 6) of ground truth and observation (costmap) pairs
+# the npz files should contain an id information
+
+img_ground_truth_map_npz = np.load('../data_test/test_ground_truth_id.npz')
+img_costmap_npz = np.load('../data_test/test_costmap_id.npz')
+
+MapDatasetTestNPZ = CustomDataset(img_ground_truth_map_npz, img_costmap_npz, num_catagories, catagories)
+test_dataloader_npz = DataLoader(MapDatasetTestNPZ, batch_size, shuffle=False)
+
+lidar_test_npz, labels_test_npz = next(iter(test_dataloader_npz))
+lidar_test_npz = lidar_test_npz.type(torch.float32).to(device)
+labels_test_npz = labels_test_npz.type(torch.float32).to(device)
+
+labels_prediction_npz_0 = model_0(lidar_test_npz)
+labels_prediction_npz_100 = model_100(lidar_test_npz)
+output_prediction_npz_2760 = anticipator(lidar_test_npz)
+
+#print(labels_test_npz.shape) # torch.Size([8, 1, 60, 60])
+plt.imshow(labels_test_npz[1,0]) # ground truth
+plt.figure()
+plt.imshow(lidar_test_npz[1,0]) # observation
+plt.figure()
+plt.imshow(labels_prediction_npz_0["occ_estimate"].detach()[1,0]) # prediction
+plt.figure()
+plt.imshow(labels_prediction_npz_100["occ_estimate"].detach()[1,0]) # prediction
+plt.figure()
+plt.imshow(output_prediction_npz_2760["occ_estimate"].detach()[1,0]) # prediction
+
 # %%
