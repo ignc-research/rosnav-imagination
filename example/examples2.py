@@ -1,6 +1,7 @@
-# %%
+# %% (runs on (anaconda (base)) python environment)
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 import sys
 #sys.path.insert(0,'/home/shen/myproject/habitat/semantic_anticipation_2d')
 sys.path.insert(0,'/home/m-yordanova/catkin_ws_ma/src/rosnav-imagination')
@@ -13,7 +14,9 @@ from einops import rearrange
 from rl.semantic_anticipator import SemAnt2D # the model
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torchvision.utils import save_image
 import cv2
+
 # %%
 def softmax_2d(x):
     b, h, w = x.shape  
@@ -57,10 +60,11 @@ class CustomDataset(Dataset): # training dataset generator for the ground truth 
         gt = np.zeros((self.num_catagories, self.ground_truth[index].shape[0], self.ground_truth[index].shape[1]))
         for i in range(self.num_catagories):
             gt[i][self.ground_truth[index] > 0] = 1 # one layer ground truth data for now, so occupied or not
+            #gt[i][self.ground_truth[index] > 0.2] = 1
         lidar = self.costmap[index]
         return lidar[np.newaxis], gt
 
-class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single ply file
+class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single npy file
     def __init__(self, ground_truth, costmap, num_catagories, catagories):
         self.ground_truth = ground_truth
         self.costmap = costmap
@@ -74,16 +78,20 @@ class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single
         gt = np.zeros((self.num_catagories, self.ground_truth.shape[0], self.ground_truth.shape[1]))
         for i in range(self.num_catagories):
             gt[i][self.ground_truth > 0] = 1 # one layer ground truth data for now, so occupied or not
+            #gt[i][self.ground_truth > 0.2] = 1
         lidar = self.costmap
         return lidar[np.newaxis], gt
 
 # %%
-ground_truth = np.load('../data/1/2_2_container_ground_truth_id.npz') # len = 205
-ground_truth_1 = np.load('../data/1/2_2_container_ground_truth_id.npz') # len = 205
-ground_truth_2 = np.load('../data/2/2_2_container_ground_truth_id.npz') # len = 244
-ground_truth_3 = np.load('../data/3/2_2_container_ground_truth_id.npz') # len = 291
-ground_truth_4 = np.load('../data/4/2_2_container_ground_truth_id.npz') # len = 318
-ground_truth_5 = np.load('../data/5/2_2_container_ground_truth_id.npz') # len = 342
+#cwd = os.getcwd()
+#print(cwd) # get the current working directory
+
+ground_truth = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_1 = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_2 = np.load('../data/100x100/2/2_2_container_ground_truth_id.npz') # len = 244
+ground_truth_3 = np.load('../data/100x100/3/2_2_container_ground_truth_id.npz') # len = 291
+ground_truth_4 = np.load('../data/100x100/4/2_2_container_ground_truth_id.npz') # len = 318
+ground_truth_5 = np.load('../data/100x100/5/2_2_container_ground_truth_id.npz') # len = 342
 
 ### combine and sort all ground truth data
 ### all npz files have the same names inside
@@ -99,20 +107,20 @@ for i in range(len(ground_truth_4)):
     ground_truth_ar.append(ground_truth_4['arr_' + str(i)])
 for i in range(len(ground_truth_5)):
     ground_truth_ar.append(ground_truth_5['arr_' + str(i)])
-np.savez('../data/all/ground_truth_all.npz', *ground_truth_ar)
-ground_truth_data_ar = np.load('../data/all/ground_truth_all.npz')
+np.savez('../data/100x100/all/ground_truth_all.npz', *ground_truth_ar)
+ground_truth_data_ar = np.load('../data/100x100/all/ground_truth_all.npz')
 #print(ground_truth_data_ar) # correct type: numpy.lib.npyio.NpzFile object
 #print(ground_truth_data_ar.files) # correct structure: ['arr_0', 'arr_1', 'arr_2', ...]
 #print(ground_truth_data_ar['arr_0']) # right: [[0. 0. 0. ... 7. 0. 0. ...]]
 #print(ground_truth_data_ar.files[0]) # wrong: arr_0; no data inside
 
 ### combine and sort all costmap data
-costmap = np.load('../data/1/2_1_container_costmap_id.npz') # len = 205
-costmap_1 = np.load('../data/1/2_1_container_costmap_id.npz') # len = 205
-costmap_2 = np.load('../data/2/2_1_container_costmap_id.npz') # len = 244
-costmap_3 = np.load('../data/3/2_1_container_costmap_id.npz') # len = 291
-costmap_4 = np.load('../data/4/2_1_container_costmap_id.npz') # len = 318
-costmap_5 = np.load('../data/5/2_1_container_costmap_id.npz') # len = 342
+costmap = np.load('../data/100x100/1/2_1_container_costmap_id.npz') # len = 205
+costmap_1 = np.load('../data/100x100/1/2_1_container_costmap_id.npz') # len = 205
+costmap_2 = np.load('../data/100x100/2/2_1_container_costmap_id.npz') # len = 244
+costmap_3 = np.load('../data/100x100/3/2_1_container_costmap_id.npz') # len = 291
+costmap_4 = np.load('../data/100x100/4/2_1_container_costmap_id.npz') # len = 318
+costmap_5 = np.load('../data/100x100/5/2_1_container_costmap_id.npz') # len = 342
 costmap_ar = [] # len = 1400
 for i in range(len(costmap_1)):
     costmap_ar.append(costmap_1['arr_' + str(i)])
@@ -124,14 +132,15 @@ for i in range(len(costmap_4)):
     costmap_ar.append(costmap_4['arr_' + str(i)])
 for i in range(len(costmap_5)):
     costmap_ar.append(costmap_5['arr_' + str(i)])
-np.savez('../data/all/costmap_all.npz', *costmap_ar)
-costmap_data_ar = np.load('../data/all/costmap_all.npz')
+np.savez('../data/100x100/all/costmap_all.npz', *costmap_ar)
+costmap_data_ar = np.load('../data/100x100/all/costmap_all.npz')
 
 num_catagories = 1 # for now only one category of occupied area # expand later on!
 catagories = [0] # a list!
 batch_size = 8 # 8 -> 24 -> 32
 MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories, catagories)
 train_dataloader = DataLoader(MapDataset, batch_size, shuffle=False) # shuffle=True/False
+
 # %%
 def simple_mapping_loss_fn(pt_hat, pt_gt):
     num_catagories = pt_hat.shape[1]
@@ -149,16 +158,17 @@ def simple_mapping_loss_fn(pt_hat, pt_gt):
 running_loss = 0.0
 #device = 'cuda:0' # run on gpu
 device = 'cpu' # run on cpu
-ego_map_size = 60
-num_import_layers = 1
-num_output_layers = num_catagories # for now =1, extend later on!
+ego_map_size = 60 # 60 / 80 ? not used
+num_import_layers = 1 # 1
+num_output_layers = num_catagories # for now =1, extend later on! # num_catagories
 network_size = 32 # 16/32/64
 anticipator = SemAnt2D(num_import_layers,num_output_layers,network_size).to(device) # init the model
 optimizer = optim.SGD(anticipator.parameters(), lr=0.001, momentum=0.9) # init the optimizer
 
+# %%
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
-iterations = 10000 # increase from 20 to 1000/10000/100000/1000000
+iterations = 20 # increase from 20 to 1000/10000/100000/1000000
 for epoch in range(iterations): # training loop
     for i, data in  enumerate(train_dataloader, 0):
         lidar, labels = data
@@ -167,7 +177,11 @@ for epoch in range(iterations): # training loop
         optimizer.zero_grad()
         # model(x) = y1 ?= y | model(observation = lidar) = result = labels ?= ground truth labels
         output = anticipator(lidar) # put data into the anticipator (predictor)
-        loss = simple_mapping_loss_fn(output["occ_estimate"], labels)
+        # TODO: lidar has 60x60, but output should have 100x100 => change the model
+        # TODO: maybe just make the lidar data 100x100 by adding black space all around?!?
+        #print(output["occ_estimate"].shape) # torch.Size([8, 1, 60, 60]) # [batch_size, channels, height, width]
+        #print(output["occ_estimate"].shape) # torch.Size([8, 1, 60, 60])
+        loss = simple_mapping_loss_fn(output["occ_estimate"], labels) # TODO: error
         writer.add_scalar("Loss/train", loss, epoch) # log the loss value
         loss.backward()
         optimizer.step()
@@ -192,6 +206,7 @@ for epoch in range(iterations): # training loop
     # "./temp_models/model_0" (25.6 MB) is the double size of "./temp_models2/model_0" (12.8 MB)
 writer.flush() # make sure that all pending events have been written to disk
 #writer.close()
+
 # %%
 # make sure that the observation and ground truth data pairs match
 lidar, labels = next(iter(train_dataloader))
@@ -199,6 +214,7 @@ labels.shape # torch.Size([8, 1, 60, 60])
 plt.imshow(labels[1,0])
 plt.figure()
 plt.imshow(lidar[1,0])
+
 # %%
 # understand the model (anticipator) and the optimizer
 print(anticipator)
@@ -213,6 +229,7 @@ for param_tensor in anticipator.state_dict():
 print("Optimizer's state_dict:")
 for var_name in optimizer.state_dict():
     print(var_name, "\t", optimizer.state_dict()[var_name])
+
 # %%
 #save/load the entire model
 path = "./temp_models/model_final.pth" # .pt/.pth
@@ -221,6 +238,7 @@ model = torch.load(path)
 # how to get the epoch, loss etc. from the saved and loaded entire model?
 model.eval()
 #model.train() # outputs SemAnt2D()
+
 # %%
 # test - load a couple of the saved models to see the difference
 checkpoint_0 = torch.load("./temp_models/model_0.pth")
@@ -239,12 +257,6 @@ loss_test_10 = checkpoint_10['loss']
 print("epoch: " + str(epoch_test_10)) # 10
 print("loss: " + str(loss_test_10)) # 2.4177
 
-checkpoint_19 = torch.load("./temp_models/model_19.pth")
-epoch_test_19 = checkpoint_19['epoch']
-loss_test_19 = checkpoint_19['loss']
-print("epoch: " + str(epoch_test_19)) # 19
-print("loss: " + str(loss_test_19)) # 2.3573
-
 checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
 epoch_test_1000 = checkpoint_1000['epoch']
 loss_test_1000 = checkpoint_1000['loss']
@@ -256,6 +268,7 @@ epoch_test_2000 = checkpoint_1000['epoch']
 loss_test_2000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_2000)) # 2000
 print("loss: " + str(loss_test_2000)) # 2.2264
+
 # %%
 # Test the model if the prediction is reasonable
 # Show the output as an image and compare it with the ground truth
@@ -347,46 +360,145 @@ labels_prediction_npy_0 = model_0(lidar_test_npy)
 labels_prediction_npy_100 = model_100(lidar_test_npy)
 output_prediction_npy_2760 = anticipator(lidar_test_npy)
 
+#print(model_100) # SemAnt2D(...)
+#print(anticipator) # SemAnt2D(...)
+
+# black & white - correct
+save_image(labels_test_npy, '../data_test/labels_test.png')
+save_image(lidar_test_npy, '../data_test/lidar_test.png')
+# black ??? (TODO)
+#save_image(labels_prediction_npy_0["occ_estimate"].detach(), '../data_test/labels_prediction_0.png')
+save_image(labels_prediction_npy_100["occ_estimate"].detach(), '../data_test/labels_prediction_100.png')
+save_image(output_prediction_npy_2760["occ_estimate"].detach(), '../data_test/labels_prediction_2760.png')
+
+labels_prediction_0 = labels_prediction_npy_0["occ_estimate"].detach()
+labels_prediction_0 = labels_prediction_0.type(torch.float32).to(device)
+labels_prediction_100 = labels_prediction_npy_0["occ_estimate"].detach()
+labels_prediction_2760 = labels_prediction_npy_0["occ_estimate"].detach()
+#print(labels_prediction_0)
+save_image(labels_prediction_0, '../data_test/labels_prediction_0.png')
+
+#print(type(labels_test_npy)) # <class 'torch.Tensor'>
+#print(type(labels_prediction_0)) # <class 'torch.Tensor'>
+
 #print(labels_test_npy.shape) # torch.Size([1, 1, 60, 60])
-plt.figure()
-plt.imshow(labels_test_npy[0,0]) # ground truth # plt.imshow(img_ground_truth_map_npy)
-plt.figure()
-plt.imshow(lidar_test_npy[0,0]) # observation # plt.imshow(img_costmap_npy)
-plt.figure()
-plt.imshow(labels_prediction_npy_0["occ_estimate"].detach()[0,0]) # prediction
-plt.figure()
-plt.imshow(labels_prediction_npy_100["occ_estimate"].detach()[0,0]) # prediction
-plt.figure()
-plt.imshow(output_prediction_npy_2760["occ_estimate"].detach()[0,0]) # prediction
-plt.figure()
+# https://stackoverflow.com/questions/8218608/scipy-savefig-without-frames-axes-only-content
+fig = plt.figure(frameon=False) # (TODO) -> RGB vs. BGR!?
+fig.set_size_inches(1,1) # make the foto (60px, 60px)
+ax = plt.Axes(fig, [0., 0., 1., 1.])
+ax.set_axis_off()
+fig.add_axes(ax)
+plt.imshow(labels_test_npy[0,0], aspect='auto') # ground truth # plt.imshow(img_ground_truth_map_npy)
+fig.savefig('../data_test/labels_test.png', dpi=60, bbox_inches='tight', pad_inches=0)
 
-# TODO: scenario6_ground_truth_id.npz & scenario6_costmap_id.npz
+# https://www.pyimagesearch.com/2014/11/03/display-matplotlib-rgb-image/
+labels_test = cv2.imread('../data_test/labels_test.png')
+labels_test_cv2 = cv2.cvtColor(labels_test, cv2.COLOR_BGR2RGB)
+cv2.imwrite('../data_test/labels_test_cv.png', labels_test_cv2)
+#fig = plt.figure(frameon=False)
+#fig.set_size_inches(1,1) # make the foto (60px, 60px)
+#ax = plt.Axes(fig, [0., 0., 1., 1.])
+#ax.set_axis_off()
+#fig.add_axes(ax)
+#plt.imshow(labels_test_cv2, aspect='auto')
+labels_test_cv2_grey = cv2.cvtColor(labels_test, cv2.COLOR_BGR2GRAY)
+cv2.imwrite('../data_test/labels_test_cv2_grey.png', labels_test_cv2_grey)
+
+fig = plt.figure(frameon=False)
+fig.set_size_inches(1,1) # make the foto (60px, 60px)
+ax = plt.Axes(fig, [0., 0., 1., 1.])
+ax.set_axis_off()
+fig.add_axes(ax)
+plt.imshow(lidar_test_npy[0,0], aspect='auto') # observation # plt.imshow(img_costmap_npy)
+fig.savefig('../data_test/lidar_test.png', dpi=60, bbox_inches='tight', pad_inches=0)
+
+lidar_test = cv2.imread('../data_test/lidar_test.png')
+lidar_test_cv2_grey = cv2.cvtColor(lidar_test, cv2.COLOR_BGR2GRAY)
+cv2.imwrite('../data_test/lidar_test_cv2_grey.png', lidar_test_cv2_grey)
+
+# variant 1
+fig = plt.figure(frameon=False)
+fig.set_size_inches(1,1) # make the foto (60px, 60px)
+ax = plt.Axes(fig, [0., 0., 1., 1.])
+ax.set_axis_off()
+fig.add_axes(ax)
+plt.imshow(labels_prediction_npy_0["occ_estimate"].detach()[0,0], aspect='auto') # prediction
+fig.savefig('../data_test/labels_prediction_0.png', dpi=60, bbox_inches='tight', pad_inches=0)
+# variant 2
+plt.imsave('../data_test/labels_prediction_0_test.png', labels_prediction_npy_0["occ_estimate"].detach()[0,0])
+
+labels_prediction_0 = cv2.imread('../data_test/labels_prediction_0.png')
+labels_prediction_0_cv2_grey = cv2.cvtColor(labels_prediction_0, cv2.COLOR_BGR2GRAY)
+cv2.imwrite('../data_test/labels_prediction_0_cv2_grey.png', labels_prediction_0_cv2_grey)
+
+fig = plt.figure(frameon=False)
+fig.set_size_inches(1,1) # make the foto (60px, 60px)
+ax = plt.Axes(fig, [0., 0., 1., 1.])
+ax.set_axis_off()
+fig.add_axes(ax)
+plt.imshow(labels_prediction_npy_100["occ_estimate"].detach()[0,0], aspect='auto') # prediction
+fig.savefig('../data_test/labels_prediction_100.png', dpi=60, bbox_inches='tight', pad_inches=0)
+
+labels_prediction_100 = cv2.imread('../data_test/labels_prediction_100.png')
+labels_prediction_100_cv2_grey = cv2.cvtColor(labels_prediction_100, cv2.COLOR_BGR2GRAY)
+cv2.imwrite('../data_test/labels_prediction_100_cv2_grey.png', labels_prediction_100_cv2_grey)
+
+fig = plt.figure(frameon=False)
+fig.set_size_inches(1,1) # make the foto (60px, 60px)
+ax = plt.Axes(fig, [0., 0., 1., 1.])
+ax.set_axis_off()
+fig.add_axes(ax)
+plt.imshow(output_prediction_npy_2760["occ_estimate"].detach()[0,0], aspect='auto') # prediction
+fig.savefig('../data_test/labels_prediction_2760.png', dpi=60, bbox_inches='tight', pad_inches=0)
+
+labels_prediction_2760 = cv2.imread('../data_test/labels_prediction_2760.png')
+labels_prediction_2760_cv2_grey = cv2.cvtColor(labels_prediction_2760, cv2.COLOR_BGR2GRAY)
+cv2.imwrite('../data_test/labels_prediction_2760_cv2_grey.png', labels_prediction_2760_cv2_grey)
+
+fig = plt.figure(frameon=False)
+
+# %%
 # Test the model with test data (2): a whole test dataset (scenario 6) of ground truth and observation (costmap) pairs
-# the npz files should contain an id information
+# The npz files should contain an id information!
 
-img_ground_truth_map_npz = np.load('../data_test/test_ground_truth_id.npz')
-img_costmap_npz = np.load('../data_test/test_costmap_id.npz')
+# load the datasets
+#img_ground_truth_map_npz = np.load('../data_test/test_ground_truth_id.npz')
+#img_costmap_npz = np.load('../data_test/test_costmap_id.npz')
+img_ground_truth_map_npz = np.load('../data_test/6/2_2_container_ground_truth_id.npz')
+img_costmap_npz = np.load('../data_test/6/2_1_container_costmap_id.npz')
 
+# bring the datasets into a right format
 MapDatasetTestNPZ = CustomDataset(img_ground_truth_map_npz, img_costmap_npz, num_catagories, catagories)
 test_dataloader_npz = DataLoader(MapDatasetTestNPZ, batch_size, shuffle=False)
 
+# get an example set of ground truth data and observation data (costmap; labels)
 lidar_test_npz, labels_test_npz = next(iter(test_dataloader_npz))
+
+# correct the format
 lidar_test_npz = lidar_test_npz.type(torch.float32).to(device)
 labels_test_npz = labels_test_npz.type(torch.float32).to(device)
 
+# using different models get the prediction (labels) depending on the observation (lidar)
 labels_prediction_npz_0 = model_0(lidar_test_npz)
 labels_prediction_npz_100 = model_100(lidar_test_npz)
 output_prediction_npz_2760 = anticipator(lidar_test_npz)
 
 #print(labels_test_npz.shape) # torch.Size([8, 1, 60, 60])
-plt.imshow(labels_test_npz[1,0]) # ground truth
+# visualization
+plt.imshow(labels_test_npz[0,0]) # ground truth
 plt.figure()
-plt.imshow(lidar_test_npz[1,0]) # observation
+plt.imshow(lidar_test_npz[0,0]) # observation
 plt.figure()
-plt.imshow(labels_prediction_npz_0["occ_estimate"].detach()[1,0]) # prediction
+plt.imshow(labels_prediction_npz_0["occ_estimate"].detach()[0,0]) # prediction
 plt.figure()
-plt.imshow(labels_prediction_npz_100["occ_estimate"].detach()[1,0]) # prediction
+plt.imshow(labels_prediction_npz_100["occ_estimate"].detach()[0,0]) # prediction
 plt.figure()
-plt.imshow(output_prediction_npz_2760["occ_estimate"].detach()[1,0]) # prediction
+plt.imshow(output_prediction_npz_2760["occ_estimate"].detach()[0,0]) # prediction
+
+# %%
+# TODO: do the imagination in real time (move_to_goal.py erweitern!?)
+# get current laser scan data (see laser_scan_data.py) -> costmap data 100x100 & robot's position -> put in the model -> get imagination costmap
+# from the local information get global information
+# TODO: publish the imagination information (the costmap) to rviz
 
 # %%
