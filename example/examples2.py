@@ -57,12 +57,17 @@ class CustomDataset(Dataset): # training dataset generator for the ground truth 
     
     def __getitem__(self,idx):
         index =  list(self.ground_truth.keys())[idx]
+        # version 1:
         gt = np.zeros((self.num_catagories, self.ground_truth[index].shape[0], self.ground_truth[index].shape[1]))
         for i in range(self.num_catagories):
-            gt[i][self.ground_truth[index] > 0] = 1 # one layer ground truth data for now, so occupied or not
-            #gt[i][self.ground_truth[index] > 0.2] = 1
+            gt[i][self.ground_truth[index] > 0] = 1 # one layer ground truth data for now, so occupied or not # TODO X
+            #gt[i][self.ground_truth[index] == 50] = 0 # TODO X: = 0/1/2
         lidar = self.costmap[index]
         return lidar[np.newaxis], gt
+        # version 2: (TODO X)
+    #    gt = self.ground_truth[index]
+    #    lidar = self.costmap[index]
+    #    return lidar[np.newaxis], gt[np.newaxis]
 
 class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single npy file
     def __init__(self, ground_truth, costmap, num_catagories, catagories):
@@ -75,68 +80,87 @@ class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single
         return 1
     
     def __getitem__(self,idx):
+        # version 1:
         gt = np.zeros((self.num_catagories, self.ground_truth.shape[0], self.ground_truth.shape[1]))
         for i in range(self.num_catagories):
-            gt[i][self.ground_truth > 0] = 1 # one layer ground truth data for now, so occupied or not
-            #gt[i][self.ground_truth > 0.2] = 1
+            gt[i][self.ground_truth > 0] = 1 # one layer ground truth data for now, so occupied or not # TODO X
+            #gt[i][self.ground_truth > 0.2] = 1 # TODO
         lidar = self.costmap
         return lidar[np.newaxis], gt
+        # version 2: (TODO X)
+    #    gt = self.ground_truth
+    #    lidar = self.costmap
+    #    return lidar[np.newaxis], gt[np.newaxis]
 
 # %%
 #cwd = os.getcwd()
 #print(cwd) # get the current working directory
 
-ground_truth = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz') # len = 205
-ground_truth_1 = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz') # len = 205
-ground_truth_2 = np.load('../data/100x100/2/2_2_container_ground_truth_id.npz') # len = 244
-ground_truth_3 = np.load('../data/100x100/3/2_2_container_ground_truth_id.npz') # len = 291
-ground_truth_4 = np.load('../data/100x100/4/2_2_container_ground_truth_id.npz') # len = 318
-ground_truth_5 = np.load('../data/100x100/5/2_2_container_ground_truth_id.npz') # len = 342
+img_range = 100 # 60/80/100/...
+img_range_str = str(img_range) + 'x' + str(img_range)
+## Group Info: (TODO X)
+# grey laser scan data & gt normal & laser scan always 60x60 : "grey_laser_scan_60x60" (for 80x80 and 100x100)
+# semantic laser scan data & gt normal: "/semantic_robot_sync/gt_normal" (for 60x60, 80x80 and 100x100)
+# semantic laser scan data & gt extended: "/semantic_robot_sync/gt_extension" (for 60x60, 80x80 and 100x100)
+group = "/semantic_robot_sync/gt_extension"
 
+#ground_truth = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz')
+ground_truth = np.load('../data/' + img_range_str + group + '/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_1 = np.load('../data/' + img_range_str + group + '/1/2_2_container_ground_truth_id.npz') # len = 205
+ground_truth_2 = np.load('../data/' + img_range_str + group + '/2/2_2_container_ground_truth_id.npz') # len = 244
+ground_truth_3 = np.load('../data/' + img_range_str + group + '/3/2_2_container_ground_truth_id.npz') # len = 291
+ground_truth_4 = np.load('../data/' + img_range_str + group + '/4/2_2_container_ground_truth_id.npz') # len = 318
+ground_truth_5 = np.load('../data/' + img_range_str + group + '/5/2_2_container_ground_truth_id.npz') # len = 342
+ground_truth_collect = [ground_truth_1, ground_truth_2, ground_truth_3, ground_truth_4, ground_truth_5]
 ### combine and sort all ground truth data
 ### all npz files have the same names inside
 ### extract the npy files from each npz file and then bild a single npz file from all npy files
 ground_truth_ar = [] # len = 1400
-for i in range(len(ground_truth)):
-    ground_truth_ar.append(ground_truth['arr_' + str(i)])
-for i in range(len(ground_truth_2)):
-    ground_truth_ar.append(ground_truth_2['arr_' + str(i)])
-for i in range(len(ground_truth_3)):
-    ground_truth_ar.append(ground_truth_3['arr_' + str(i)])
-for i in range(len(ground_truth_4)):
-    ground_truth_ar.append(ground_truth_4['arr_' + str(i)])
-for i in range(len(ground_truth_5)):
-    ground_truth_ar.append(ground_truth_5['arr_' + str(i)])
-np.savez('../data/100x100/all/ground_truth_all.npz', *ground_truth_ar)
-ground_truth_data_ar = np.load('../data/100x100/all/ground_truth_all.npz')
+for ground_truth in ground_truth_collect:
+    for c in range(len(ground_truth)):
+        ground_truth_ar.append(ground_truth['arr_' + str(c)])
+np.savez('../data/' + img_range_str + group + '/all/ground_truth_all.npz', *ground_truth_ar)
+ground_truth_data_ar = np.load('../data/' + img_range_str + group + '/all/ground_truth_all.npz')
 #print(ground_truth_data_ar) # correct type: numpy.lib.npyio.NpzFile object
 #print(ground_truth_data_ar.files) # correct structure: ['arr_0', 'arr_1', 'arr_2', ...]
 #print(ground_truth_data_ar['arr_0']) # right: [[0. 0. 0. ... 7. 0. 0. ...]]
 #print(ground_truth_data_ar.files[0]) # wrong: arr_0; no data inside
 
 ### combine and sort all costmap data
-costmap = np.load('../data/100x100/1/2_1_container_costmap_id.npz') # len = 205
-costmap_1 = np.load('../data/100x100/1/2_1_container_costmap_id.npz') # len = 205
-costmap_2 = np.load('../data/100x100/2/2_1_container_costmap_id.npz') # len = 244
-costmap_3 = np.load('../data/100x100/3/2_1_container_costmap_id.npz') # len = 291
-costmap_4 = np.load('../data/100x100/4/2_1_container_costmap_id.npz') # len = 318
-costmap_5 = np.load('../data/100x100/5/2_1_container_costmap_id.npz') # len = 342
+costmap = np.load('../data/' + img_range_str + group + '/1/2_1_container_costmap_id.npz') # len = 205
+costmap_1 = np.load('../data/' + img_range_str + group + '/1/2_1_container_costmap_id.npz') # len = 205
+costmap_2 = np.load('../data/' + img_range_str + group + '/2/2_1_container_costmap_id.npz') # len = 244
+costmap_3 = np.load('../data/' + img_range_str + group + '/3/2_1_container_costmap_id.npz') # len = 291
+costmap_4 = np.load('../data/' + img_range_str + group + '/4/2_1_container_costmap_id.npz') # len = 318
+costmap_5 = np.load('../data/' + img_range_str + group + '/5/2_1_container_costmap_id.npz') # len = 342
+costmap_collect = [costmap_1, costmap_2, costmap_3, costmap_4, costmap_5]
 costmap_ar = [] # len = 1400
-for i in range(len(costmap_1)):
-    costmap_ar.append(costmap_1['arr_' + str(i)])
-for i in range(len(costmap_2)):
-    costmap_ar.append(costmap_2['arr_' + str(i)])
-for i in range(len(costmap_3)):
-    costmap_ar.append(costmap_3['arr_' + str(i)])
-for i in range(len(costmap_4)):
-    costmap_ar.append(costmap_4['arr_' + str(i)])
-for i in range(len(costmap_5)):
-    costmap_ar.append(costmap_5['arr_' + str(i)])
-np.savez('../data/100x100/all/costmap_all.npz', *costmap_ar)
-costmap_data_ar = np.load('../data/100x100/all/costmap_all.npz')
+for costmap in costmap_collect:
+    for c in range(len(costmap)):
+        temp_npy_file = costmap['arr_' + str(c)]
+        range_old = len(temp_npy_file) # 60/80/100
+        step = int((img_range - range_old)/2) # (100-60)/2=20
+        new_npy_file = np.full((img_range,img_range), 50) # TODO: init with 50.0 (color=unknown) instead of 0.0 (black=free)
+        # Important (TODO X): if the costmap should be bigger (it should be 80x80/100x100, but it is 60x60), expand it here (with IDs!)
+        if img_range != range_old:
+            for i in range(img_range):
+                for j in range(img_range):
+                    if not((i < step or i >= (range_old + step)) or (j < step or j >= (range_old + step))): # border from all sides: 0-19 & 80-99
+                        new_npy_file[i,j] = temp_npy_file[i-step,j-step] # take the id only in the middle, the inside of the borders
+            costmap_ar.append(new_npy_file) # costmap['arr_' + str(c)] -> new_npy_file
+        else:
+            costmap_ar.append(costmap['arr_' + str(c)])
+        # TODO X: if the costmap should be smaller (if it is 100x100, but should be 60x60)
+np.savez('../data/' + img_range_str + group + '/all/costmap_all.npz', *costmap_ar)
+costmap_data_ar = np.load('../data/' + img_range_str + group + '/all/costmap_all.npz')
 
-num_catagories = 1 # for now only one category of occupied area # expand later on!
-catagories = [0] # a list!
+# TODO X: test with costmap images with black/white/colored border:
+#group = "/test/test_border_id_50" # "/test/test_border_black_free" / "/test/test_border_white" / "/test/test_border_id_50"
+#ground_truth_data_ar = np.load('../data/' + img_range_str + group + '/2_2_container_ground_truth_id.npz')
+#costmap_data_ar = np.load('../data/' + img_range_str + group + '/2_1_container_costmap_id.npz')
+
+num_catagories = 1 # for now only one category of occupied area # expand later on! # TODO X: 1 -> 2 ?
+catagories = [0] # a list! # TODO X: [0] -> [0,1/2] ?
 batch_size = 8 # 8 -> 24 -> 32
 MapDataset = CustomDataset(ground_truth_data_ar, costmap_data_ar, num_catagories, catagories)
 train_dataloader = DataLoader(MapDataset, batch_size, shuffle=False) # shuffle=True/False
@@ -168,7 +192,7 @@ optimizer = optim.SGD(anticipator.parameters(), lr=0.001, momentum=0.9) # init t
 # %%
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
-iterations = 20 # increase from 20 to 1000/10000/100000/1000000
+iterations = 11 # increase from 11 to 101/1001/2001/10000/100000/1000000
 for epoch in range(iterations): # training loop
     for i, data in  enumerate(train_dataloader, 0):
         lidar, labels = data
@@ -191,19 +215,19 @@ for epoch in range(iterations): # training loop
                   (epoch + 1, i + 1, running_loss/10))
             running_loss = 0.0
     if epoch % 100 == 0: # save the model every X epochs
-        #path = "./temp_models/model_" + str(epoch) + ".pth" # .pt/.pth
+        #path = "./models_state_dict/model_" + str(epoch) + ".pth" # .pt/.pth
         #torch.save({
         #            'epoch': epoch,
         #            'model_state_dict': anticipator.state_dict(),
         #            'optimizer_state_dict': optimizer.state_dict(),
         #            'loss': loss
         #            }, path)
-        path2 = "./temp_models2/model_" + str(epoch) + ".pth" # .pt/.pth
+        path2 = "./models/model_" + str(epoch) + ".pth" # .pt/.pth
         torch.save(anticipator, path2)
     # Statistics:
     # 2760 trained models (with epoch, loss etc.) for 19h as 69 GB, where a model for each epoch was saved
     # 101 trained entire models for 40 min as 2 files of 25.6 MB all together, where a model for each 100 epochs was saved
-    # "./temp_models/model_0" (25.6 MB) is the double size of "./temp_models2/model_0" (12.8 MB)
+    # "./models_state_dict/model_0" (25.6 MB) is the double size of "./models/model_0" (12.8 MB)
 writer.flush() # make sure that all pending events have been written to disk
 #writer.close()
 
@@ -232,7 +256,7 @@ for var_name in optimizer.state_dict():
 
 # %%
 #save/load the entire model
-path = "./temp_models/model_final.pth" # .pt/.pth
+path = "./models_state_dict/model_final.pth" # .pt/.pth
 torch.save(anticipator, path)
 model = torch.load(path)
 # how to get the epoch, loss etc. from the saved and loaded entire model?
@@ -241,7 +265,7 @@ model.eval()
 
 # %%
 # test - load a couple of the saved models to see the difference
-checkpoint_0 = torch.load("./temp_models/model_0.pth")
+checkpoint_0 = torch.load("./models_state_dict/model_0.pth")
 #model.load_state_dict(checkpoint['model_state_dict'])
 #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 epoch_test_0 = checkpoint_0['epoch']
@@ -251,26 +275,26 @@ print("loss: " + str(loss_test_0)) # tensor(2.6073, requires_grad=True)
 #model.eval()
 #model.train()
 
-checkpoint_10 = torch.load("./temp_models/model_10.pth")
+checkpoint_10 = torch.load("./models_state_dict/model_10.pth")
 epoch_test_10 = checkpoint_10['epoch']
 loss_test_10 = checkpoint_10['loss']
 print("epoch: " + str(epoch_test_10)) # 10
 print("loss: " + str(loss_test_10)) # 2.4177
 
-checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
+checkpoint_1000 = torch.load("./models_state_dict/model_1000.pth")
 epoch_test_1000 = checkpoint_1000['epoch']
 loss_test_1000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_1000)) # 1000
 print("loss: " + str(loss_test_1000)) # 2.2264
 
-checkpoint_2000 = torch.load("./temp_models/model_2000.pth")
+checkpoint_2000 = torch.load("./models_state_dict/model_2000.pth")
 epoch_test_2000 = checkpoint_1000['epoch']
 loss_test_2000 = checkpoint_1000['loss']
 print("epoch: " + str(epoch_test_2000)) # 2000
 print("loss: " + str(loss_test_2000)) # 2.2264
 
 # %%
-# Test the model if the prediction is reasonable
+# Test the model if the prediction is reasonable (TODO X)
 # Show the output as an image and compare it with the ground truth
 
 # get the observation (costmap/lidar) and ground truth (labels) data
@@ -279,14 +303,16 @@ lidar = lidar.type(torch.float32).to(device) # convert float to double
 labels = labels.type(torch.float32).to(device)
 
 # load the model
-model_0 = torch.load("./temp_models2/model_0.pth")
-model_100 = torch.load("./temp_models2/model_100.pth")
-checkpoint_1000 = torch.load("./temp_models/model_1000.pth")
-checkpoint_2760 = torch.load("./temp_models/model_2760.pth")
+model_0 = torch.load("./models/model_0.pth")
+model_100 = torch.load("./models/model_100.pth")
+model_1000 = torch.load("./models/model_1000.pth")
+checkpoint_1000 = torch.load("./models_state_dict/model_1000.pth")
+checkpoint_2760 = torch.load("./models_state_dict/model_2760.pth")
 
 # get the prediction (predicted labels): prediction = model(observation)
 labels_0 = model_0(lidar)
 labels_100 = model_100(lidar)
+labels_1000 = model_1000(lidar)
 anticipator.load_state_dict(checkpoint_1000['model_state_dict']) # ! first load the disc state to a model and then use that model to get the prediction
 output_1000 = anticipator(lidar)
 anticipator.load_state_dict(checkpoint_2760['model_state_dict']) # !
@@ -302,6 +328,8 @@ plt.figure()
 plt.imshow(labels_0["occ_estimate"].detach()[0,0]) # prediction
 plt.figure()
 plt.imshow(labels_100["occ_estimate"].detach()[0,0]) # prediction
+plt.figure()
+plt.imshow(labels_1000["occ_estimate"].detach()[0,0]) # prediction
 plt.figure()
 plt.imshow(output_1000["occ_estimate"].detach()[0,0]) # prediction
 plt.figure()
