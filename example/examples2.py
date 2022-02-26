@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
+
+# Important: adjust the local path to where the repository "https://github.com/ignc-research/rosnav-imagination" has been cloned!
 #sys.path.insert(0,'/home/shen/myproject/habitat/semantic_anticipation_2d')
 sys.path.insert(0,'/home/m-yordanova/catkin_ws_ma/src/rosnav-imagination')
 
