@@ -98,13 +98,13 @@ class CustomDatasetSingle(Dataset): # (TODO) test dataset generator for a single
 #cwd = os.getcwd()
 #print(cwd) # get the current working directory
 
-img_range = 100 # 60/80/100/...
+img_range = 160 # 60/80/100/160...
 img_range_str = str(img_range) + 'x' + str(img_range)
 ## Group Info: (TODO X)
 # grey laser scan data & gt normal & laser scan always 60x60 : "grey_laser_scan_60x60" (for 80x80 and 100x100)
 # semantic laser scan data & gt normal: "/semantic_robot_sync/gt_normal" (for 60x60, 80x80 and 100x100)
 # semantic laser scan data & gt extended: "/semantic_robot_sync/gt_extension" (for 60x60, 80x80 and 100x100)
-group = "/semantic_robot_sync/gt_extension"
+group = "/semantic_robot_sync/gt_normal"
 
 #ground_truth = np.load('../data/100x100/1/2_2_container_ground_truth_id.npz')
 ground_truth = np.load('../data/' + img_range_str + group + '/1/2_2_container_ground_truth_id.npz') # len = 205
@@ -140,7 +140,7 @@ costmap_ar = [] # len = 1400
 for costmap in costmap_collect:
     for c in range(len(costmap)):
         temp_npy_file = costmap['arr_' + str(c)]
-        range_old = len(temp_npy_file) # 60/80/100
+        range_old = len(temp_npy_file) # 60/80/100/160
         step = int((img_range - range_old)/2) # (100-60)/2=20
         new_npy_file = np.full((img_range,img_range), 50) # TODO: init with 50.0 (color=unknown) instead of 0.0 (black=free)
         # Important (TODO X): if the costmap should be bigger (it should be 80x80/100x100, but it is 60x60), expand it here (with IDs!)
